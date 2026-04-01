@@ -1,0 +1,562 @@
+/* ============================================================
+   FIGHTROT — style.css
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+/* ---------- Reset / Base ---------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --p1-color: #ff4757;
+  --p2-color: #1e90ff;
+  --bg-dark:  #0d0d0d;
+  --bg-arena: #1a1a2e;
+  --gold:     #ffd700;
+  --aura-h:   22px;
+}
+
+body {
+  background: var(--bg-dark);
+  font-family: 'Press Start 2P', monospace;
+  color: #fff;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 8px;
+  background: rgba(0,0,0,0.7);
+  border-bottom: 2px solid #333;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.aura-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+#p2-aura-container {
+  flex-direction: row-reverse;
+}
+
+.aura-label {
+  font-size: 7px;
+  white-space: nowrap;
+  color: #aaa;
+}
+
+.aura-value {
+  font-size: 9px;
+  min-width: 28px;
+  text-align: center;
+}
+
+.aura-bar-bg {
+  flex: 1;
+  height: var(--aura-h);
+  background: #222;
+  border: 2px solid #444;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.aura-bar {
+  height: 100%;
+  width: 100%;
+  border-radius: 2px;
+  transition: width 0.35s cubic-bezier(.4,0,.2,1),
+              background 0.5s;
+  background: linear-gradient(90deg, #28c76f, #48e08a);
+  transform-origin: left;
+}
+
+#p1-aura-bar { background: linear-gradient(90deg, #ff4757, #ff6b81); transform-origin: left; }
+#p2-aura-bar { background: linear-gradient(270deg, #1e90ff, #74b9ff); transform-origin: right; }
+
+/* low-aura pulse */
+.aura-bar.low { animation: aura-pulse 0.6s infinite alternate; }
+@keyframes aura-pulse {
+  from { filter: brightness(1); }
+  to   { filter: brightness(1.8); }
+}
+
+#title-badge {
+  font-size: 11px;
+  color: var(--gold);
+  text-shadow: 0 0 10px var(--gold);
+  white-space: nowrap;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ---------- Arena ---------- */
+#arena {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 60px 40px;
+  background:
+    radial-gradient(ellipse at 50% 110%, #2d1b00 0%, transparent 65%),
+    linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* decorative floor */
+#arena::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 38px;
+  background: repeating-linear-gradient(
+    90deg,
+    #111 0px, #111 60px,
+    #1a1a1a 60px, #1a1a1a 120px
+  );
+  border-top: 3px solid #333;
+}
+
+/* stars in background */
+#arena::before {
+  content: '✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦';
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: rgba(255,255,255,0.08);
+  white-space: nowrap;
+  letter-spacing: 8px;
+}
+
+#vs-badge {
+  font-size: 36px;
+  color: var(--gold);
+  text-shadow: 0 0 20px var(--gold), 0 0 40px #ff6b00;
+  position: absolute;
+  left: 50%;
+  bottom: 100px;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+/* ---------- Fighters ---------- */
+.fighter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 3;
+  position: relative;
+}
+
+.fighter-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  transition: filter 0.2s;
+}
+
+.fighter-head {
+  font-size: 52px;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(255,255,255,0.2));
+}
+
+.fighter-torso {
+  width: 54px;
+  height: 72px;
+  border-radius: 8px 8px 4px 4px;
+  margin-top: 4px;
+}
+
+.p1-body .fighter-torso {
+  background: linear-gradient(180deg, var(--p1-color), #c0392b);
+  box-shadow: 0 0 18px rgba(255,71,87,0.5);
+}
+
+.p2-body .fighter-torso {
+  background: linear-gradient(180deg, var(--p2-color), #0066cc);
+  box-shadow: 0 0 18px rgba(30,144,255,0.5);
+}
+
+.fighter-fist {
+  font-size: 28px;
+  position: absolute;
+  top: 80px;
+}
+
+.left-fist  { right: -32px; }
+.right-fist { left: -32px; }
+
+.fighter-name {
+  font-size: 7px;
+  text-align: center;
+  color: #ccc;
+  line-height: 1.8;
+}
+
+/* ---------- Punch Animations ---------- */
+@keyframes punch-right {
+  0%   { transform: translateX(0) scaleX(1); }
+  30%  { transform: translateX(120px) scaleX(1.08); }
+  55%  { transform: translateX(80px); }
+  100% { transform: translateX(0) scaleX(1); }
+}
+
+@keyframes punch-left {
+  0%   { transform: translateX(0) scaleX(1); }
+  30%  { transform: translateX(-120px) scaleX(1.08); }
+  55%  { transform: translateX(-80px); }
+  100% { transform: translateX(0) scaleX(1); }
+}
+
+@keyframes hit-shake {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-12px); }
+  40%      { transform: translateX(12px); }
+  60%      { transform: translateX(-8px); }
+  80%      { transform: translateX(8px); }
+}
+
+.punching-right .fighter-body { animation: punch-right 0.45s ease-out forwards; }
+.punching-left  .fighter-body { animation: punch-left  0.45s ease-out forwards; }
+.hit-shake                    { animation: hit-shake   0.35s ease-out; }
+
+/* Glow on punch */
+.punching-right .p1-body { filter: drop-shadow(0 0 18px var(--p1-color)) brightness(1.3); }
+.punching-left  .p2-body { filter: drop-shadow(0 0 18px var(--p2-color)) brightness(1.3); }
+
+/* ---------- Hit Flash ---------- */
+#hit-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0;
+  transition: opacity 0.08s;
+}
+#hit-flash.flash-p1 { background: radial-gradient(ellipse, rgba(255,71,87,0.35), transparent 70%); }
+#hit-flash.flash-p2 { background: radial-gradient(ellipse, rgba(30,144,255,0.35), transparent 70%); }
+#hit-flash.active   { opacity: 1; }
+
+/* ---------- Damage Text ---------- */
+#damage-text {
+  position: fixed;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 22px;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0;
+  text-shadow: 0 0 12px currentColor;
+  transition: none;
+}
+
+@keyframes dmg-pop {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(1.4); }
+  60%  { opacity: 1; transform: translate(-50%, -80%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -120%) scale(0.8); }
+}
+#damage-text.pop { animation: dmg-pop 0.7s ease-out forwards; }
+
+/* ---------- Overlays ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.overlay.hidden { display: none; }
+
+.overlay-box {
+  background: #12122a;
+  border: 3px solid var(--gold);
+  border-radius: 16px;
+  padding: 40px 48px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  max-width: 520px;
+  box-shadow: 0 0 50px rgba(255,215,0,0.25);
+}
+
+.overlay-box h1 {
+  font-size: 22px;
+  color: var(--gold);
+  text-shadow: 0 0 14px var(--gold);
+}
+
+.instructions {
+  font-size: 9px;
+  line-height: 2.2;
+  color: #ddd;
+  border: 1px solid #333;
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+}
+
+.sub { font-size: 7px; color: #888; }
+
+/* ---------- Buttons ---------- */
+.big-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  padding: 14px 28px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  color: #000;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 18px rgba(255,140,0,0.5);
+}
+
+.big-btn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 6px 24px rgba(255,140,0,0.8);
+}
+
+.big-btn:active { transform: scale(0.97); }
+.big-btn:disabled {
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.quit-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  padding: 10px 20px;
+  border: 2px solid #444;
+  border-radius: 8px;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.quit-btn:hover { color: #ccc; border-color: #666; }
+
+/* ---------- Mobile Connect ---------- */
+.mobile-divider {
+  font-size: 7px;
+  color: #555;
+  letter-spacing: 1px;
+  width: 100%;
+  text-align: center;
+}
+
+.mobile-row {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  justify-content: center;
+}
+
+.mobile-player-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 14px 10px;
+  min-width: 0;
+}
+
+.mobile-player-label {
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.p1-label { color: var(--p1-color); }
+.p2-label { color: var(--p2-color); }
+
+.code-display {
+  font-size: 22px;
+  letter-spacing: 6px;
+  color: var(--gold);
+  text-shadow: 0 0 10px var(--gold);
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  padding: 8px 10px;
+  border: 2px solid #555;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  color: #ccc;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.mobile-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(255,215,0,0.08); }
+.mobile-btn.connected { border-color: #28c76f; color: #28c76f; background: rgba(40,199,111,0.1); }
+
+.mobile-status {
+  font-size: 7px;
+  min-height: 14px;
+  color: #666;
+}
+.mobile-status.ok   { color: #28c76f; }
+.mobile-status.wait { color: var(--gold); }
+
+/* ---------- Controller Overlay (mobile) ---------- */
+.controller-box {
+  border-color: #28c76f;
+  box-shadow: 0 0 50px rgba(40,199,111,0.25);
+  max-width: 380px;
+}
+
+.controller-box h2 {
+  font-size: 14px;
+  color: #28c76f;
+}
+
+.code-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  justify-content: center;
+}
+
+.code-input {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 20px;
+  width: 110px;
+  padding: 10px 8px;
+  background: #0a0a1a;
+  border: 2px solid #444;
+  border-radius: 8px;
+  color: var(--gold);
+  text-align: center;
+  letter-spacing: 6px;
+  outline: none;
+}
+
+.code-input:focus { border-color: var(--gold); }
+
+.controller-status {
+  font-size: 8px;
+  min-height: 18px;
+  color: #888;
+}
+
+.controller-player-badge {
+  font-size: 16px;
+  padding: 10px 24px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.badge-p1 { background: rgba(255,71,87,0.2); color: var(--p1-color); border: 2px solid var(--p1-color); }
+.badge-p2 { background: rgba(30,144,255,0.2); color: var(--p2-color); border: 2px solid var(--p2-color); }
+
+/* Mic visualizer bars on mobile controller */
+.mic-viz {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  height: 48px;
+  padding: 4px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+  width: 100%;
+  justify-content: center;
+}
+
+.mic-bar {
+  width: 40%;
+  border-radius: 3px 3px 0 0;
+  transition: height 0.08s linear;
+  min-height: 4px;
+}
+
+#mic-bar-low  { background: var(--p1-color); height: 4px; }
+#mic-bar-high { background: var(--p2-color); height: 4px; }
+
+.mic-viz-label { font-size: 7px; color: #888; }
+
+/* ---------- Game Over ---------- */
+.gameover-box { border-color: #ff4757; box-shadow: 0 0 60px rgba(255,71,87,0.3); }
+
+#gameover-title {
+  font-size: 18px;
+  color: #ff4757;
+  text-shadow: 0 0 20px #ff4757;
+  animation: title-flicker 1.4s infinite alternate;
+}
+
+@keyframes title-flicker {
+  0%  { opacity: 1; }
+  85% { opacity: 1; }
+  90% { opacity: 0.4; }
+  95% { opacity: 1; }
+  100%{ opacity: 0.6; }
+}
+
+#winner-text {
+  font-size: 11px;
+  color: var(--gold);
+  text-shadow: 0 0 10px var(--gold);
+}
+
+/* ---------- Mic Status ---------- */
+#mic-status {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 7px;
+  color: #555;
+  z-index: 10;
+  pointer-events: none;
+  transition: color 0.4s;
+}
+
+#mic-status.active { color: #28c76f; }
+#mic-status.error  { color: #ff4757; }
+
+/* ---------- Responsive tweaks ---------- */
+@media (max-width: 640px) {
+  #arena { padding: 0 20px 36px; }
+  .fighter-head { font-size: 38px; }
+  .fighter-torso { width: 40px; height: 54px; }
+  #vs-badge { font-size: 26px; bottom: 80px; }
+  .aura-label { display: none; }
+}
