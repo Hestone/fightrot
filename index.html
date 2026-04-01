@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FIGHTROT 🎤👊</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="aura-container" id="p1-aura-container">
+      <span class="aura-label">P1 AURA</span>
+      <div class="aura-bar-bg">
+        <div class="aura-bar" id="p1-aura-bar"></div>
+      </div>
+      <span class="aura-value" id="p1-aura-value">100</span>
+    </div>
+
+    <div id="title-badge">FIGHTROT 🎤</div>
+
+    <div class="aura-container" id="p2-aura-container">
+      <span class="aura-value" id="p2-aura-value">100</span>
+      <div class="aura-bar-bg">
+        <div class="aura-bar" id="p2-aura-bar" style="transform-origin: right;"></div>
+      </div>
+      <span class="aura-label">P2 AURA</span>
+    </div>
+  </div>
+
+  <!-- Arena -->
+  <div id="arena">
+    <!-- Player 1 (Left) -->
+    <div class="fighter" id="player1">
+      <div class="fighter-body p1-body">
+        <div class="fighter-head">😤</div>
+        <div class="fighter-torso"></div>
+        <div class="fighter-fist left-fist">✊</div>
+      </div>
+      <div class="fighter-name">PLAYER 1<br/><small>GROWL 🔊</small></div>
+    </div>
+
+    <!-- VS Badge -->
+    <div id="vs-badge">VS</div>
+
+    <!-- Player 2 (Right) -->
+    <div class="fighter" id="player2">
+      <div class="fighter-body p2-body">
+        <div class="fighter-head">😤</div>
+        <div class="fighter-torso"></div>
+        <div class="fighter-fist right-fist">✊</div>
+      </div>
+      <div class="fighter-name">PLAYER 2<br/><small>SHRIEK 🔊</small></div>
+    </div>
+  </div>
+
+  <!-- Hit Flash -->
+  <div id="hit-flash"></div>
+
+  <!-- Floating Damage Text -->
+  <div id="damage-text"></div>
+
+  <!-- Start Overlay -->
+  <div id="start-overlay" class="overlay">
+    <div class="overlay-box">
+      <h1>🎤 FIGHTROT 🎤</h1>
+      <p class="instructions">
+        <strong>Player 1:</strong> Growl / Bass sounds → PUNCH RIGHT<br/>
+        <strong>Player 2:</strong> Shriek / High-pitched sounds → PUNCH LEFT
+      </p>
+      <p class="sub">Allow microphone access when prompted.</p>
+      <!-- Mobile Connect Section -->
+      <div id="mobile-section">
+        <div class="mobile-divider">── OR CONNECT A PHONE ──</div>
+        <div class="mobile-row">
+          <div class="mobile-player-card" id="p1-card">
+            <span class="mobile-player-label p1-label">P1</span>
+            <div id="p1-code-display" class="code-display">––––</div>
+            <button class="mobile-btn" id="p1-connect-btn">📱 Connect P1 Phone</button>
+            <div class="mobile-status" id="p1-mobile-status"></div>
+          </div>
+          <div class="mobile-player-card" id="p2-card">
+            <span class="mobile-player-label p2-label">P2</span>
+            <div id="p2-code-display" class="code-display">––––</div>
+            <button class="mobile-btn" id="p2-connect-btn">📱 Connect P2 Phone</button>
+            <div class="mobile-status" id="p2-mobile-status"></div>
+          </div>
+        </div>
+        <p class="sub">On your phone, open <strong id="phone-url-hint">http://&lt;your-local-ip&gt;:3000/?controller</strong> and enter the code 📡</p>
+      </div>
+
+      <button id="start-btn" class="big-btn">⚔️ START FIGHT</button>
+      <button id="quit-btn" class="quit-btn">✖ QUIT</button>
+    </div>
+  </div>
+
+  <!-- Mobile Controller Overlay (shown when ?controller param is in URL) -->
+  <div id="controller-overlay" class="overlay hidden">
+    <div class="overlay-box controller-box">
+      <h2>📱 MOBILE CONTROLLER</h2>
+      <p class="sub">Enter the 4-digit code shown on the game screen</p>
+      <div class="code-input-row">
+        <input type="text" id="code-input" class="code-input" maxlength="4" placeholder="0000" inputmode="numeric" />
+        <button id="code-submit-btn" class="big-btn">JOIN</button>
+      </div>
+      <div id="controller-status" class="controller-status"></div>
+      <div id="controller-active" class="hidden">
+        <div class="controller-player-badge" id="ctrl-player-badge">PLAYER ?</div>
+        <p class="sub">Speak into your phone to punch!</p>
+        <div class="mic-viz" id="mic-viz">
+          <div class="mic-bar" id="mic-bar-low"></div>
+          <div class="mic-bar" id="mic-bar-high"></div>
+        </div>
+        <p class="mic-viz-label"><span style="color:var(--p1-color)">LOW</span> &nbsp;|&nbsp; <span style="color:var(--p2-color)">HIGH</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Overlay -->
+  <div id="gameover-overlay" class="overlay hidden">
+    <div class="overlay-box gameover-box">
+      <div id="gameover-title">L RIZZ: GAME OVER</div>
+      <div id="winner-text"></div>
+      <button id="restart-btn" class="big-btn">🔄 REMATCH</button>
+      <button id="quit-btn-2" class="quit-btn">✖ QUIT</button>
+    </div>
+  </div>
+
+  <!-- Mic Status -->
+  <div id="mic-status">🎤 Waiting for mic…</div>
+
+  <script src="game.js"></script>
+</body>
+</html>
