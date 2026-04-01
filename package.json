@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "tunnel": "cloudflared tunnel --url http://localhost:3000",
+    "dev": "concurrently --names \"server,tunnel\" --prefix-colors \"cyan,magenta\" \"node server.js\" \"cloudflared tunnel --url http://localhost:3000\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -22,5 +23,8 @@
   "homepage": "https://github.com/Hestone/fightrot#readme",
   "dependencies": {
     "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

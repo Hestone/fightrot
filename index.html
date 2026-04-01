@@ -29,10 +29,33 @@
     </div>
   </div>
 
+  <!-- Energy HUD (below main HUD) -->
+  <div id="energy-hud">
+    <div class="energy-container" id="p1-energy-container">
+      <span class="energy-label">⚡ P1 ENERGY</span>
+      <div class="energy-bar-bg">
+        <div class="energy-bar" id="p1-energy-bar"></div>
+      </div>
+      <span class="energy-value" id="p1-energy-value">0</span>
+    </div>
+    <div id="special-hint">🎤 Say "6 7" / "block" / "skibidi toilet"</div>
+    <div class="energy-container" id="p2-energy-container">
+      <span class="energy-value" id="p2-energy-value">0</span>
+      <div class="energy-bar-bg">
+        <div class="energy-bar p2" id="p2-energy-bar"></div>
+      </div>
+      <span class="energy-label">⚡ P2 ENERGY</span>
+    </div>
+  </div>
+
   <!-- Arena -->
   <div id="arena">
+    <!-- Projectile canvas (sits over arena) -->
+    <canvas id="projectile-canvas"></canvas>
+
     <!-- Player 1 (Left) -->
     <div class="fighter" id="player1">
+      <div class="block-shield" id="p1-shield">🛡️</div>
       <div class="fighter-body p1-body">
         <div class="fighter-head">😤</div>
         <div class="fighter-torso"></div>
@@ -46,6 +69,7 @@
 
     <!-- Player 2 (Right) -->
     <div class="fighter" id="player2">
+      <div class="block-shield" id="p2-shield">🛡️</div>
       <div class="fighter-body p2-body">
         <div class="fighter-head">😤</div>
         <div class="fighter-torso"></div>
@@ -129,6 +153,10 @@
 
   <!-- Mic Status -->
   <div id="mic-status">🎤 Waiting for mic…</div>
+  <!-- Speech Recognition Status -->
+  <div id="speech-status"></div>
+  <!-- Combo Text -->
+  <div id="combo-text" class="combo-text"></div>
 
   <script src="game.js"></script>
 </body>

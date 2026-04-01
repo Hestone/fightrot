@@ -16,6 +16,15 @@ const VOLUME_THRESHOLD = 40;   // 0-255
 const LOW_BAND_END     = 8;    // freq bin index ≈ < 300 Hz
 const HIGH_BAND_START  = 55;   // freq bin index ≈ > 2 kHz
 
+// Energy / special move constants
+const ENERGY_MAX         = 100;
+const ENERGY_PER_HIT     = 20;   // energy gained per successful punch
+const COMBO_COST         = 50;   // energy cost for "6 7" combo
+const TOILET_COST        = 100;  // energy cost for Skibidi Toilet
+const COMBO_MIN_DAMAGE   = 6;
+const COMBO_MAX_DAMAGE   = 7;
+const BLOCK_DURATION_MS  = 2000; // how long a block lasts
+
 // WebSocket relay — mirror the page's own protocol and host exactly.
 // When served via a tunnel (Cloudflare, ngrok) on port 443/80, location.port is ""
 // and we must NOT append a port number. Only add :port for non-standard ports (local dev).
@@ -26,6 +35,10 @@ const WS_URL  = `${WS_PROTOCOL}://${WS_HOST}`;
 const state = {
   p1Aura: AURA_MAX,
   p2Aura: AURA_MAX,
+  p1Energy: 0,
+  p2Energy: 0,
+  blocking: { Player1: false, Player2: false },
+  blockTimers: { Player1: null, Player2: null },
   lastPunchTime: { Player1: 0, Player2: 0 },
   gameRunning: false,
   animFrameId: null,
@@ -52,9 +65,23 @@ const p1AuraBar       = $('p1-aura-bar');
 const p2AuraBar       = $('p2-aura-bar');
 const p1AuraVal       = $('p1-aura-value');
 const p2AuraVal       = $('p2-aura-value');
+// Energy bars
+const p1EnergyBar     = $('p1-energy-bar');
+const p2EnergyBar     = $('p2-energy-bar');
+const p1EnergyVal     = $('p1-energy-value');
+const p2EnergyVal     = $('p2-energy-value');
+// Shields
+const p1Shield        = $('p1-shield');
+const p2Shield        = $('p2-shield');
+// Projectile canvas
+const projCanvas      = $('projectile-canvas');
+const projCtx         = projCanvas.getContext('2d');
+// Misc
 const hitFlash        = $('hit-flash');
 const damageText      = $('damage-text');
+const comboText       = $('combo-text');
 const micStatus       = $('mic-status');
+const speechStatus    = $('speech-status');
 const startOverlay    = $('start-overlay');
 const gameoverOverlay = $('gameover-overlay');
 const winnerText      = $('winner-text');
@@ -173,6 +200,9 @@ function gameLoop() {
     }
   }
 
+  // Update & draw any active toilet projectiles
+  updateProjectiles();
+
   state.animFrameId = requestAnimationFrame(gameLoop);
 }
 
@@ -183,16 +213,25 @@ function gameLoop() {
 /**
  * Trigger a punch for the given player.
  * Player1 punches → damages Player2 (and vice-versa).
+ * Returns true if damage was dealt (not blocked).
  */
-function handlePunch(punchingPlayer) {
+function handlePunch(punchingPlayer, damage = PUNCH_DAMAGE) {
   const isP1 = punchingPlayer === 'Player1';
   const attackerEl  = isP1 ? p1El : p2El;
   const defenderEl  = isP1 ? p2El : p1El;
   const punchClass  = isP1 ? 'punching-right' : 'punching-left';
   const flashClass  = isP1 ? 'flash-p1' : 'flash-p2';
+  const defenderKey = isP1 ? 'Player2' : 'Player1';
 
   // --- Punch animation ---
   triggerPunch(attackerEl, punchClass);
+
+  // --- Check block ---
+  if (state.blocking[defenderKey]) {
+    triggerFlash('flash-block');
+    showDamageText('🛡️ BLOCKED!', '#00cfff');
+    return false;
+  }
 
   // --- Hit shake on defender ---
   triggerHitShake(defenderEl);
@@ -200,18 +239,326 @@ function handlePunch(punchingPlayer) {
   // --- Screen flash ---
   triggerFlash(flashClass);
 
+  // --- Gain energy for attacker ---
+  gainEnergy(punchingPlayer, ENERGY_PER_HIT);
+
   // --- Reduce aura ---
   if (isP1) {
-    state.p2Aura = Math.max(0, state.p2Aura - PUNCH_DAMAGE);
+    state.p2Aura = Math.max(0, state.p2Aura - damage);
     updateAura('p2', state.p2Aura);
-    showDamageText(`-${PUNCH_DAMAGE} AURA`, '#ff4757');
+    showDamageText(`-${damage} AURA`, '#ff4757');
     if (state.p2Aura <= 0) triggerGameOver('Player 1');
   } else {
-    state.p1Aura = Math.max(0, state.p1Aura - PUNCH_DAMAGE);
+    state.p1Aura = Math.max(0, state.p1Aura - damage);
     updateAura('p1', state.p1Aura);
-    showDamageText(`-${PUNCH_DAMAGE} AURA`, '#1e90ff');
+    showDamageText(`-${damage} AURA`, '#1e90ff');
     if (state.p1Aura <= 0) triggerGameOver('Player 2');
   }
+  return true;
+}
+
+/**
+ * Trigger the 6-7 combo: rapid two-hit animation with variable damage.
+ * Costs COMBO_COST energy.
+ */
+function handleCombo(player) {
+  const energy = player === 'Player1' ? state.p1Energy : state.p2Energy;
+  if (energy < COMBO_COST) {
+    showDamageText('⚡ NOT ENOUGH ENERGY!', '#ffd700');
+    return;
+  }
+  spendEnergy(player, COMBO_COST);
+
+  const isP1 = player === 'Player1';
+  const attackerEl = isP1 ? p1El : p2El;
+  const punchClass = isP1 ? 'punching-right' : 'punching-left';
+
+  // Show combo flash label
+  showComboText('✊6✊7 COMBO!!');
+
+  // Hit 1
+  const dmg1 = Math.floor(Math.random() * (COMBO_MAX_DAMAGE - COMBO_MIN_DAMAGE + 1)) + COMBO_MIN_DAMAGE;
+  handlePunch(player, dmg1);
+
+  // Hit 2 — staggered 350ms later
+  setTimeout(() => {
+    if (!state.gameRunning) return;
+    triggerPunch(attackerEl, punchClass);
+    const dmg2 = Math.floor(Math.random() * (COMBO_MAX_DAMAGE - COMBO_MIN_DAMAGE + 1)) + COMBO_MIN_DAMAGE;
+    const defenderKey = isP1 ? 'Player2' : 'Player1';
+    if (!state.blocking[defenderKey]) {
+      if (isP1) {
+        state.p2Aura = Math.max(0, state.p2Aura - dmg2);
+        updateAura('p2', state.p2Aura);
+        showDamageText(`-${dmg2} AURA`, '#ff4757');
+        if (state.p2Aura <= 0) triggerGameOver('Player 1');
+      } else {
+        state.p1Aura = Math.max(0, state.p1Aura - dmg2);
+        updateAura('p1', state.p1Aura);
+        showDamageText(`-${dmg2} AURA`, '#1e90ff');
+        if (state.p1Aura <= 0) triggerGameOver('Player 2');
+      }
+      gainEnergy(player, ENERGY_PER_HIT);
+    }
+  }, 350);
+}
+
+/**
+ * Activate a block for the given player for BLOCK_DURATION_MS.
+ */
+function handleBlock(player) {
+  const shield = player === 'Player1' ? p1Shield : p2Shield;
+  state.blocking[player] = true;
+  shield.classList.add('active');
+
+  // Clear any existing block timer
+  if (state.blockTimers[player]) clearTimeout(state.blockTimers[player]);
+  state.blockTimers[player] = setTimeout(() => {
+    state.blocking[player] = false;
+    shield.classList.remove('active');
+  }, BLOCK_DURATION_MS);
+
+  showDamageText(player === 'Player1' ? '🛡️ P1 BLOCK!' : '🛡️ P2 BLOCK!', '#00cfff');
+}
+
+// ============================================================
+// 5b. ENERGY METER
+// ============================================================
+function gainEnergy(player, amount) {
+  if (player === 'Player1') {
+    state.p1Energy = Math.min(ENERGY_MAX, state.p1Energy + amount);
+    updateEnergy('p1', state.p1Energy);
+  } else {
+    state.p2Energy = Math.min(ENERGY_MAX, state.p2Energy + amount);
+    updateEnergy('p2', state.p2Energy);
+  }
+}
+
+function spendEnergy(player, amount) {
+  if (player === 'Player1') {
+    state.p1Energy = Math.max(0, state.p1Energy - amount);
+    updateEnergy('p1', state.p1Energy);
+  } else {
+    state.p2Energy = Math.max(0, state.p2Energy - amount);
+    updateEnergy('p2', state.p2Energy);
+  }
+}
+
+function updateEnergy(player, value) {
+  const bar = player === 'p1' ? p1EnergyBar : p2EnergyBar;
+  const val = player === 'p1' ? p1EnergyVal : p2EnergyVal;
+  const pct = Math.round((value / ENERGY_MAX) * 100);
+  bar.style.width = pct + '%';
+  val.textContent = value;
+  bar.classList.toggle('full', value >= ENERGY_MAX);
+}
+
+// ============================================================
+// 5c. SKIBIDI TOILET PROJECTILE (Canvas physics)
+// ============================================================
+const projectiles = [];
+
+function resizeCanvas() {
+  const arena = document.getElementById('arena');
+  projCanvas.width  = arena.clientWidth;
+  projCanvas.height = arena.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+// Will be called once game starts
+
+function launchToilet(player) {
+  const energy = player === 'Player1' ? state.p1Energy : state.p2Energy;
+  if (energy < TOILET_COST) {
+    showDamageText('⚡ NEED FULL ENERGY!', '#ffd700');
+    return;
+  }
+  spendEnergy(player, TOILET_COST);
+  showComboText('🚽 SKIBIDI TOILET!!');
+
+  const isP1  = player === 'Player1';
+  const cw    = projCanvas.width;
+  const ch    = projCanvas.height;
+
+  // Launch from attacker's side, aim toward defender
+  const startX  = isP1 ? cw * 0.18 : cw * 0.82;
+  const startY  = ch * 0.45;
+  const angle   = isP1 ? -28 : (180 + 28); // degrees above horizontal
+  const speed   = cw * 0.012;               // scales with arena width
+  const rad     = (angle * Math.PI) / 180;
+
+  projectiles.push({
+    x: startX,
+    y: startY,
+    vx: Math.cos(rad) * speed * (isP1 ? 1 : -1),
+    vy: Math.sin(rad) * speed - speed * 0.4,
+    gravity: 0.45,
+    owner: player,
+    hit: false,
+    trail: [],
+  });
+}
+
+function updateProjectiles() {
+  resizeCanvas();
+  projCtx.clearRect(0, 0, projCanvas.width, projCanvas.height);
+
+  const cw = projCanvas.width;
+  const ch = projCanvas.height;
+
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    if (p.hit) { projectiles.splice(i, 1); continue; }
+
+    // Physics
+    p.vy += p.gravity;
+    p.x  += p.vx;
+    p.y  += p.vy;
+
+    // Record trail
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > 14) p.trail.shift();
+
+    // Draw trail
+    for (let t = 0; t < p.trail.length; t++) {
+      const alpha = (t / p.trail.length) * 0.45;
+      projCtx.globalAlpha = alpha;
+      projCtx.font = `${10 + t}px serif`;
+      projCtx.fillText('💧', p.trail[t].x - 6, p.trail[t].y + 6);
+    }
+    projCtx.globalAlpha = 1;
+
+    // Draw toilet emoji
+    projCtx.save();
+    projCtx.font = '36px serif';
+    // Rotate based on velocity direction
+    projCtx.translate(p.x, p.y);
+    projCtx.rotate(Math.atan2(p.vy, p.vx));
+    projCtx.fillText('🚽', -18, 14);
+    projCtx.restore();
+
+    // Hit detection: check if toilet reaches the defender's X zone
+    const isP1Owner   = p.owner === 'Player1';
+    const defenderX   = isP1Owner ? cw * 0.75 : cw * 0.25;
+    const defenderKey = isP1Owner ? 'Player2' : 'Player1';
+    const reachedZone = isP1Owner ? p.x >= defenderX : p.x <= defenderX;
+
+    if (reachedZone && !p.hit) {
+      p.hit = true;
+      // Splash effect
+      triggerFlash(isP1Owner ? 'flash-p1' : 'flash-p2');
+
+      if (state.blocking[defenderKey]) {
+        showDamageText('🛡️ TOILET BLOCKED!', '#00cfff');
+      } else {
+        const dmg = 25;
+        if (isP1Owner) {
+          state.p2Aura = Math.max(0, state.p2Aura - dmg);
+          updateAura('p2', state.p2Aura);
+          if (state.p2Aura <= 0) triggerGameOver('Player 1');
+        } else {
+          state.p1Aura = Math.max(0, state.p1Aura - dmg);
+          updateAura('p1', state.p1Aura);
+          if (state.p1Aura <= 0) triggerGameOver('Player 2');
+        }
+        showDamageText('🚽 -25 AURA', '#ffd700');
+        const defEl = isP1Owner ? p2El : p1El;
+        triggerHitShake(defEl);
+      }
+    }
+
+    // Remove if off-screen or past defender
+    if (p.y > ch + 60 || p.x < -60 || p.x > cw + 60) {
+      projectiles.splice(i, 1);
+    }
+  }
+}
+
+// ============================================================
+// 5d. SPEECH RECOGNITION — "6 7", "block", "skibidi toilet"
+// ============================================================
+let speechRecognition = null;
+
+function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    if (speechStatus) speechStatus.textContent = '🎤 Speech commands unavailable in this browser';
+    return;
+  }
+
+  speechRecognition = new SR();
+  speechRecognition.continuous   = true;
+  speechRecognition.interimResults = false;
+  speechRecognition.lang         = 'en-US';
+
+  speechRecognition.onstart = () => {
+    if (speechStatus) { speechStatus.textContent = '🎤 Listening for commands…'; speechStatus.className = 'listening'; }
+  };
+
+  speechRecognition.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (!event.results[i].isFinal) continue;
+      const transcript = event.results[i][0].transcript.toLowerCase().trim();
+      if (speechStatus) { speechStatus.textContent = `🗣 "${transcript}"`; speechStatus.className = 'triggered'; }
+
+      if (!state.gameRunning) continue;
+
+      // Detect WHICH player spoke (based on dominant frequency of main analyser)
+      const speaker = detectSpeaker();
+
+      // ── "6 7" combo ──────────────────────────────────────
+      if (/\b6\s*7\b|six\s*seven/.test(transcript)) {
+        const now = Date.now();
+        if (now - state.lastPunchTime[speaker] >= COOLDOWN_MS) {
+          state.lastPunchTime[speaker] = now;
+          handleCombo(speaker);
+        }
+        continue;
+      }
+
+      // ── "block" ───────────────────────────────────────────
+      if (/\bblock\b/.test(transcript)) {
+        handleBlock(speaker);
+        continue;
+      }
+
+      // ── "skibidi toilet" ──────────────────────────────────
+      if (/skibidi/.test(transcript) || /toilet/.test(transcript)) {
+        const now = Date.now();
+        if (now - state.lastPunchTime[speaker] >= COOLDOWN_MS) {
+          state.lastPunchTime[speaker] = now;
+          launchToilet(speaker);
+        }
+        continue;
+      }
+    }
+  };
+
+  speechRecognition.onerror = (e) => {
+    if (e.error === 'no-speech') return; // ignore silence
+    if (speechStatus) speechStatus.textContent = `⚠️ Speech error: ${e.error}`;
+  };
+
+  speechRecognition.onend = () => {
+    // Auto-restart so it stays active throughout the game
+    if (state.gameRunning) {
+      try { speechRecognition.start(); } catch {}
+    }
+  };
+
+  try { speechRecognition.start(); } catch {}
+}
+
+/**
+ * Use the current mic frequency data to guess which player spoke.
+ * Falls back to Player1 if mic isn't available.
+ */
+function detectSpeaker() {
+  if (!analyser) return 'Player1';
+  analyser.getByteFrequencyData(freqData);
+  let lowSum = 0, highSum = 0;
+  for (let i = 0; i <= LOW_BAND_END; i++) lowSum += freqData[i];
+  for (let i = HIGH_BAND_START; i < freqData.length; i++) highSum += freqData[i];
+  return lowSum >= highSum ? 'Player1' : 'Player2';
 }
 
 // ============================================================
@@ -287,12 +634,22 @@ function showDamageText(text, color) {
   damageText.classList.add('pop');
 }
 
+function showComboText(text) {
+  comboText.textContent = text;
+  comboText.classList.remove('pop');
+  void comboText.offsetWidth;
+  comboText.classList.add('pop');
+}
+
 // ============================================================
 // 9. GAME OVER
 // ============================================================
 function triggerGameOver(winnerName) {
   state.gameRunning = false;
   cancelAnimationFrame(state.animFrameId);
+  if (speechRecognition) { try { speechRecognition.stop(); } catch {} }
+  projCtx.clearRect(0, 0, projCanvas.width, projCanvas.height);
+  projectiles.length = 0;
 
   winnerText.textContent = `🏆 ${winnerName.toUpperCase()} WINS!`;
   gameoverOverlay.classList.remove('hidden');
@@ -304,12 +661,24 @@ function triggerGameOver(winnerName) {
 function resetGame() {
   state.p1Aura = AURA_MAX;
   state.p2Aura = AURA_MAX;
+  state.p1Energy = 0;
+  state.p2Energy = 0;
   state.lastPunchTime = { Player1: 0, Player2: 0 };
+  state.blocking = { Player1: false, Player2: false };
+  clearTimeout(state.blockTimers.Player1);
+  clearTimeout(state.blockTimers.Player2);
+  state.blockTimers = { Player1: null, Player2: null };
+  projectiles.length = 0;
+  projCtx.clearRect(0, 0, projCanvas.width, projCanvas.height);
 
   updateAura('p1', AURA_MAX);
   updateAura('p2', AURA_MAX);
+  updateEnergy('p1', 0);
+  updateEnergy('p2', 0);
   p1AuraBar.classList.remove('low');
   p2AuraBar.classList.remove('low');
+  p1Shield.classList.remove('active');
+  p2Shield.classList.remove('active');
 
   p1El.className = 'fighter';
   p2El.className = 'fighter';
@@ -317,6 +686,7 @@ function resetGame() {
   hitFlash.className = '';
   damageText.className = '';
   damageText.textContent = '';
+  comboText.className = 'combo-text';
 
   gameoverOverlay.classList.add('hidden');
 }
@@ -387,6 +757,26 @@ function activateMobileSlot(player) {
       if (now - state.lastPunchTime[player] >= COOLDOWN_MS) {
         state.lastPunchTime[player] = now;
         handlePunch(player);
+      }
+    }
+
+    if (msg.type === 'combo' && state.gameRunning) {
+      const now = Date.now();
+      if (now - state.lastPunchTime[player] >= COOLDOWN_MS) {
+        state.lastPunchTime[player] = now;
+        handleCombo(player);
+      }
+    }
+
+    if (msg.type === 'block' && state.gameRunning) {
+      handleBlock(player);
+    }
+
+    if (msg.type === 'toilet' && state.gameRunning) {
+      const now = Date.now();
+      if (now - state.lastPunchTime[player] >= COOLDOWN_MS) {
+        state.lastPunchTime[player] = now;
+        launchToilet(player);
       }
     }
   };
@@ -520,6 +910,35 @@ async function runMobileController() {
     }
 
     ctrlLoop();
+
+    // ── Speech recognition on the PHONE (relays commands over WS) ──
+    const PhoneSR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (PhoneSR) {
+      const phoneSR = new PhoneSR();
+      phoneSR.continuous = true;
+      phoneSR.interimResults = false;
+      phoneSR.lang = 'en-US';
+
+      phoneSR.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (!event.results[i].isFinal) continue;
+          const t = event.results[i][0].transcript.toLowerCase().trim();
+
+          if (ws.readyState !== WebSocket.OPEN) return;
+
+          if (/\b6\s*7\b|six\s*seven/.test(t)) {
+            ws.send(JSON.stringify({ type: 'combo' }));
+          } else if (/\bblock\b/.test(t)) {
+            ws.send(JSON.stringify({ type: 'block' }));
+          } else if (/skibidi|toilet/.test(t)) {
+            ws.send(JSON.stringify({ type: 'toilet' }));
+          }
+        }
+      };
+
+      phoneSR.onend = () => { try { phoneSR.start(); } catch {} };
+      try { phoneSR.start(); } catch {}
+    }
   });
 }
 
@@ -610,6 +1029,8 @@ restartBtn.addEventListener('click', () => {
 
 function startGame() {
   state.gameRunning = true;
+  resizeCanvas();
+  initSpeechRecognition();
   state.animFrameId = requestAnimationFrame(gameLoop);
 }
 
@@ -621,19 +1042,31 @@ function enableKeyboardFallback() {
     if (!state.gameRunning) return;
     const now = Date.now();
 
+    // Basic punches
     if (e.code === 'KeyZ' && !state.mobileConnected.Player1) {
       if (now - state.lastPunchTime['Player1'] >= COOLDOWN_MS) {
         state.lastPunchTime['Player1'] = now;
         handlePunch('Player1');
       }
     }
-
     if (e.code === 'Slash' && !state.mobileConnected.Player2) {
       if (now - state.lastPunchTime['Player2'] >= COOLDOWN_MS) {
         state.lastPunchTime['Player2'] = now;
         handlePunch('Player2');
       }
     }
+
+    // Combo test keys: X = P1 combo, . = P2 combo
+    if (e.code === 'KeyX') handleCombo('Player1');
+    if (e.code === 'Period') handleCombo('Player2');
+
+    // Block test keys: C = P1 block, , = P2 block
+    if (e.code === 'KeyC') handleBlock('Player1');
+    if (e.code === 'Comma') handleBlock('Player2');
+
+    // Toilet test keys: V = P1 toilet, M = P2 toilet
+    if (e.code === 'KeyV') launchToilet('Player1');
+    if (e.code === 'KeyM') launchToilet('Player2');
   });
 }
 

@@ -151,15 +151,15 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ── Phone sends a punch ───────────────────────────────────
-    if (msg.type === 'punch') {
+    // ── Phone sends a punch / combo / block / toilet ──────────
+    if (msg.type === 'punch' || msg.type === 'combo' || msg.type === 'block' || msg.type === 'toilet') {
       if (ws._role !== 'controller' || !ws._code || !ws._player) return;
 
       const room = rooms.get(ws._code);
       if (!room) return;
 
       const hostWs = room[ws._player];
-      send(hostWs, { type: 'punch', player: ws._player });
+      send(hostWs, { type: msg.type, player: ws._player });
       return;
     }
   });
